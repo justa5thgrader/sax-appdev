@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import * as Tone from "tone";
+import { fingerPositions } from "./fingerPositions";
 
 // Define types for our data structures
 interface Note {
@@ -9,64 +10,37 @@ interface Note {
 }
 
 interface Song {
+  id?: string;
   title: string;
   notes: Note[];
   tempo: number;
   timeSignature: [number, number];
+  lastModified?: number;
 }
 
-// Mapping for finger positions
-type FingerPositionMap = {
-  [key: string]: boolean[];
+const DEFAULT_SONG: Song = {
+  title: "SaxBuddy Demo",
+  notes: [
+    { note: "C1", duration: 1, time: 0 },
+    { note: "B1", duration: 1, time: 1 },
+    { note: "D1", duration: 1, time: 2 },
+    { note: "E1", duration: 1, time: 3 },
+    { note: "F1", duration: 1, time: 4 },
+    { note: "G1", duration: 1, time: 5 },
+    { note: "B2", duration: 1, time: 6 },
+    { note: "C2", duration: 1, time: 7 },
+    { note: "D2", duration: 1, time: 8 },
+    { note: "B2", duration: 1, time: 9 },
+  ],
+  tempo: 60,
+  timeSignature: [4, 4],
 };
 
 const SaxLearningApp = () => {
-  // Updated fingerboard configuration for Alto Sax based on the chart
-  // For each note, defines: [octaveKey, First finger, Second finger, Third finger, Fourth finger, Fifth finger, Sixth finger]
-  // True = key is pressed/covered, False = key is open/not pressed
-  const fingerPositions: FingerPositionMap = {
-    // First register (lower octave)
-    Bb1: [false, true, true, true, true, true, true],
-    B1: [false, true, false, false, false, false, false],
-    C1: [false, false, true, false, false, false, false],
-    "C#1": [false, false, false, true, false, false, false],
-    D1: [false, true, true, true, true, true, true],
-    E1: [false, true, true, true, true, true, false],
-    F1: [false, true, true, true, true, false, false],
-    "F#1": [false, true, true, true, false, true, false],
-    G1: [true, true, true, false, false, false, false],
-    A1: [false, true, true, false, false, false, false],
-
-    // Second register (higher octave - with octave key)
-    B2: [true, true, false, false, false, false, false],
-    C2: [true, false, true, false, false, false, false],
-    "C#2": [true, false, true, false, false, false, false],
-    D2: [true, true, true, true, false, true, true],
-    E2: [true, true, true, true, true, true, false],
-    F2: [true, true, true, true, true, false, false],
-    "F#2": [true, true, true, true, false, true, false],
-    G2: [true, true, true, true, false, false, false],
-    A2: [true, true, true, false, false, false, false],
-  };
-
   // State for music data
-  const [song, setSong] = useState<Song>({
-    title: "Alto Sax Basic Notes",
-    notes: [
-      { note: "C1", duration: 1, time: 0 },
-      { note: "B1", duration: 1, time: 1 },
-      { note: "D1", duration: 1, time: 2 },
-      { note: "E1", duration: 1, time: 3 },
-      { note: "F1", duration: 1, time: 4 },
-      { note: "G1", duration: 1, time: 5 },
-      { note: "B2", duration: 1, time: 6 },
-      { note: "C2", duration: 1, time: 7 },
-      { note: "D2", duration: 1, time: 8 },
-      { note: "B2", duration: 1, time: 9 },
-    ],
-    tempo: 60,
-    timeSignature: [4, 4],
-  });
+  const [song, setSong] = useState<Song>(DEFAULT_SONG);
+  const [savedSongs, setSavedSongs] = useState<Song[]>([]);
+  const [showSongList, setShowSongList] = useState(false);
 
   // State for playback
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
@@ -84,6 +58,80 @@ const SaxLearningApp = () => {
   // Initialize Tone.js synth and effects
   const [synth, setSynth] = useState<Tone.Synth | null>(null);
   const [isAudioInitialized, setIsAudioInitialized] = useState<boolean>(false);
+
+  // Load saved songs on startup
+  useEffect(() => {
+    const loadSavedSongs = () => {
+      const savedSongsJson = localStorage.getItem("saxbuddySongs");
+      if (savedSongsJson) {
+        const songs = JSON.parse(savedSongsJson) as Song[];
+        setSavedSongs(songs);
+
+        // Load last edited song if it exists
+        const lastSongId = localStorage.getItem("saxbuddyLastSong");
+        if (lastSongId) {
+          const lastSong = songs.find((s: Song) => s.id === lastSongId);
+          if (lastSong) {
+            setSong(lastSong);
+            setDuration(
+              lastSong.notes.reduce(
+                (total: number, note: Note) =>
+                  Math.max(total, note.time + note.duration),
+                0
+              )
+            );
+          }
+        }
+      }
+    };
+
+    loadSavedSongs();
+  }, []);
+
+  // Save song to localStorage
+  const saveSongToStorage = (songToSave: Song) => {
+    const songId = songToSave.id || `song_${Date.now()}`;
+    const updatedSong = {
+      ...songToSave,
+      id: songId,
+      lastModified: Date.now(),
+    };
+
+    const existingSongs = savedSongs.filter((s) => s.id !== songId);
+    const newSavedSongs = [updatedSong, ...existingSongs];
+
+    localStorage.setItem("saxbuddySongs", JSON.stringify(newSavedSongs));
+    localStorage.setItem("saxbuddyLastSong", songId);
+
+    setSavedSongs(newSavedSongs);
+    setSong(updatedSong);
+  };
+
+  // Delete saved song
+  const deleteSavedSong = (songId: string) => {
+    const newSavedSongs = savedSongs.filter((s) => s.id !== songId);
+    localStorage.setItem("saxbuddySongs", JSON.stringify(newSavedSongs));
+    setSavedSongs(newSavedSongs);
+
+    if (song.id === songId) {
+      setSong(DEFAULT_SONG);
+      localStorage.removeItem("saxbuddyLastSong");
+    }
+  };
+
+  // Load a saved song
+  const loadSavedSong = (songToLoad: Song) => {
+    setSong(songToLoad);
+    setDuration(
+      songToLoad.notes.reduce(
+        (total, note) => Math.max(total, note.time + note.duration),
+        0
+      )
+    );
+    localStorage.setItem("saxbuddyLastSong", songToLoad.id!);
+    setShowSongList(false);
+    resetPlayback();
+  };
 
   // Setup Tone.js synth with saxophone-like qualities
   useEffect(() => {
@@ -519,13 +567,12 @@ const SaxLearningApp = () => {
   const saveSong = (): void => {
     if (!editingSong) return;
 
-    setSong(editingSong);
-    setDuration(
-      editingSong.notes.reduce(
-        (total, note) => Math.max(total, note.time + note.duration),
-        0
-      )
-    );
+    const songToSave = {
+      ...editingSong,
+      lastModified: Date.now(),
+    };
+
+    saveSongToStorage(songToSave);
     setEditorMode(false);
     resetPlayback();
   };
@@ -589,7 +636,10 @@ const SaxLearningApp = () => {
                     >
                       <optgroup label="First Octave">
                         {Object.keys(fingerPositions)
-                          .filter((noteName) => noteName.includes("1"))
+                          .filter(
+                            (noteName) =>
+                              noteName.includes("1") && !noteName.includes("Bb")
+                          )
                           .map((noteName) => (
                             <option key={noteName} value={noteName}>
                               {noteName}
@@ -598,7 +648,10 @@ const SaxLearningApp = () => {
                       </optgroup>
                       <optgroup label="Second Octave">
                         {Object.keys(fingerPositions)
-                          .filter((noteName) => noteName.includes("2"))
+                          .filter(
+                            (noteName) =>
+                              noteName.includes("2") && !noteName.includes("Bb")
+                          )
                           .map((noteName) => (
                             <option key={noteName} value={noteName}>
                               {noteName}
@@ -652,9 +705,77 @@ const SaxLearningApp = () => {
     );
   };
 
+  // Render saved songs list
+  const renderSavedSongs = () => {
+    if (!showSongList) return null;
+
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="bg-gray-800 p-6 rounded-lg w-96 max-h-[80vh] overflow-y-auto">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl">Saved Songs</h2>
+            <button
+              onClick={() => setShowSongList(false)}
+              className="text-gray-400 hover:text-white"
+            >
+              ✕
+            </button>
+          </div>
+
+          {savedSongs.length === 0 ? (
+            <p className="text-gray-400">No saved songs yet</p>
+          ) : (
+            <div className="space-y-2">
+              {savedSongs.map((savedSong) => (
+                <div
+                  key={savedSong.id}
+                  className="flex items-center justify-between p-3 bg-gray-700 rounded hover:bg-gray-600"
+                >
+                  <div>
+                    <div className="font-medium">{savedSong.title}</div>
+                    <div className="text-sm text-gray-400">
+                      {new Date(savedSong.lastModified!).toLocaleDateString()}
+                    </div>
+                  </div>
+                  <div className="flex space-x-2">
+                    <button
+                      onClick={() => loadSavedSong(savedSong)}
+                      className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600"
+                    >
+                      Load
+                    </button>
+                    <button
+                      onClick={() => deleteSavedSong(savedSong.id!)}
+                      className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   return (
-    <div className="sax-learning-app bg-gray-900 text-white min-h-screen w-full p-6">
-      <h1 className="text-2xl mb-4">{song.title} - Alto Saxophone Tutorial</h1>
+    <div className="sax-learning-app min-h-screen w-full p-6 bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
+      {/* Header with Logo */}
+      <div className="flex items-center gap-4 mb-2">
+        <img
+          src="https://res.cloudinary.com/dwyr6duxy/image/upload/v1743385127/ChatGPT_Image_Mar_30_2025_06_38_33_PM_bhp2rl.png"
+          alt="SaxBuddy Logo"
+          className="w-16 h-16 object-contain"
+        />
+        <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-500 via-pink-600 to-orange-500 text-transparent bg-clip-text">
+          SaxBuddy
+        </h1>
+      </div>
+      <h2 className="text-xl text-gray-400 mb-8 ml-20">
+        Currently Playing: {song.title}
+      </h2>
 
       {!editorMode && (
         <>
@@ -672,17 +793,55 @@ const SaxLearningApp = () => {
                 "Sixth Finger (Right Middle)",
               ].map((label, index) => (
                 <div key={index} className="flex items-center mb-6">
-                  <div
-                    className={`w-10 h-10 rounded-full border-2 flex items-center justify-center mr-2 
-                    ${
-                      getCurrentNote() &&
-                      fingerPositions[getCurrentNote()!]?.[index]
-                        ? index === 0
-                          ? "bg-blue-300 border-blue-500"
-                          : "bg-yellow-300 border-yellow-500"
-                        : "border-gray-300"
-                    }`}
-                  ></div>
+                  {index === 0 ? (
+                    // Octave key icon
+                    <div
+                      className={`w-12 h-12 relative flex items-center justify-center mr-2`}
+                    >
+                      <svg
+                        viewBox="0 0 40 40"
+                        className={`w-full h-full ${
+                          getCurrentNote() &&
+                          fingerPositions[getCurrentNote()!]?.[index]
+                            ? "text-blue-300"
+                            : "text-gray-600"
+                        }`}
+                      >
+                        <path
+                          d="M20 5 L28 12 L28 30 C28 34 24 37 20 37 C16 37 12 34 12 30 L12 12 Z"
+                          fill="currentColor"
+                          stroke={
+                            getCurrentNote() &&
+                            fingerPositions[getCurrentNote()!]?.[index]
+                              ? "#3B82F6"
+                              : "#4B5563"
+                          }
+                          strokeWidth="2"
+                        />
+                        <circle
+                          cx="20"
+                          cy="22"
+                          r="5"
+                          fill={
+                            getCurrentNote() &&
+                            fingerPositions[getCurrentNote()!]?.[index]
+                              ? "#3B82F6"
+                              : "#4B5563"
+                          }
+                        />
+                      </svg>
+                    </div>
+                  ) : (
+                    <div
+                      className={`w-10 h-10 rounded-full border-2 flex items-center justify-center mr-2 
+                      ${
+                        getCurrentNote() &&
+                        fingerPositions[getCurrentNote()!]?.[index]
+                          ? "bg-yellow-300 border-yellow-500"
+                          : "border-gray-300"
+                      }`}
+                    ></div>
+                  )}
                   <span className="text-sm whitespace-nowrap overflow-hidden text-gray-300">
                     {label}
                   </span>
@@ -707,26 +866,28 @@ const SaxLearningApp = () => {
                   {/* Notes on staff */}
                   {song.notes.map((note, index) => {
                     const top = getNotePosition(note.note) * 0.25;
-                    // Adjust position calculation to center at 20% mark
                     const timeOffset = note.time - currentTime;
-                    const left = `${20 + timeOffset * 20}%`; // 20% is our center point, move 20% per second
-                    const width = `${(note.duration / duration) * 100}%`;
+                    const left = `${20 + timeOffset * 20}%`;
                     const isCurrent = index === getCurrentNoteIndex();
                     const { note: noteName, octave } = parseNote(note.note);
 
+                    // Calculate opacity based on position - fade out over 0.25 seconds
+                    const opacity =
+                      timeOffset < 0 ? Math.max(0, 1 + timeOffset * 4) : 1;
+
                     // Only show notes that are coming up or recently passed
-                    if (timeOffset > -2 && timeOffset < 5) {
+                    if (timeOffset > -0.25 && timeOffset < 5) {
                       return (
                         <div
                           key={index}
-                          className={`absolute flex flex-col items-center justify-center transition-all duration-200
+                          className={`absolute flex flex-col items-center justify-center transition-all duration-300 ease-out
                                     ${isCurrent ? "scale-110" : "scale-100"}`}
                           style={{
                             left: left,
                             top: top,
-                            width: width,
-                            maxWidth: "100px",
-                            zIndex: isCurrent ? 10 : 1,
+                            width: "40px",
+                            opacity: opacity,
+                            zIndex: 30,
                           }}
                         >
                           <div
@@ -769,32 +930,61 @@ const SaxLearningApp = () => {
                           style={{ top: `${index * 50}px` }}
                         >
                           {/* Circle indicator at 20% from left */}
-                          <div
-                            className={`absolute h-8 w-8 rounded-full border-2 flex items-center justify-center
-                              ${
-                                isPressed
-                                  ? index === 0
-                                    ? "bg-blue-300 border-blue-500"
-                                    : "bg-yellow-300 border-yellow-500"
-                                  : "border-gray-300"
-                              }`}
-                            style={{ left: "calc(20% - 16px)", top: "-4px" }}
-                          />
+                          {index === 0 ? (
+                            // Octave key icon in fingering chart
+                            <div
+                              className={`absolute h-10 w-10 flex items-center justify-center`}
+                              style={{ left: "calc(20% - 20px)", top: "-6px" }}
+                            >
+                              <svg
+                                viewBox="0 0 40 40"
+                                className={`w-full h-full ${
+                                  isPressed ? "text-blue-300" : "text-gray-600"
+                                }`}
+                              >
+                                <path
+                                  d="M20 5 L28 12 L28 30 C28 34 24 37 20 37 C16 37 12 34 12 30 L12 12 Z"
+                                  fill="currentColor"
+                                  stroke={isPressed ? "#3B82F6" : "#4B5563"}
+                                  strokeWidth="2"
+                                />
+                                <circle
+                                  cx="20"
+                                  cy="22"
+                                  r="5"
+                                  fill={isPressed ? "#3B82F6" : "#4B5563"}
+                                />
+                              </svg>
+                            </div>
+                          ) : (
+                            <div
+                              className={`absolute h-8 w-8 rounded-full border-2 flex items-center justify-center
+                                ${
+                                  isPressed
+                                    ? "bg-yellow-300 border-yellow-500"
+                                    : "border-gray-300"
+                                }`}
+                              style={{ left: "calc(20% - 16px)", top: "-4px" }}
+                            />
+                          )}
 
                           {/* Bars for upcoming notes */}
                           {song.notes.map((note, noteIndex) => {
                             const notePositions =
                               fingerPositions[note.note] || [];
                             const isActiveForNote = notePositions[index];
-                            // Match the note positioning logic
                             const timeOffset = note.time - currentTime;
                             const left = `${20 + timeOffset * 20}%`;
-                            const widthPercent =
-                              (note.duration / duration) * 100;
+
+                            // Match the note opacity calculation
+                            const opacity =
+                              timeOffset < 0
+                                ? Math.max(0, 1 + timeOffset * 4)
+                                : 1;
 
                             // Only show bars that are coming up or recently passed
                             if (
-                              timeOffset > -2 &&
+                              timeOffset > -0.25 &&
                               timeOffset < 5 &&
                               isActiveForNote
                             ) {
@@ -805,10 +995,11 @@ const SaxLearningApp = () => {
                                     index === 0
                                       ? "bg-blue-300"
                                       : "bg-yellow-300"
-                                  } rounded-md opacity-80`}
+                                  } rounded-md opacity-80 transition-all duration-300 ease-out`}
                                   style={{
                                     left: left,
-                                    width: `${widthPercent}%`,
+                                    width: "40px",
+                                    opacity: opacity * 0.8, // Maintain relative opacity
                                   }}
                                 ></div>
                               );
@@ -832,7 +1023,6 @@ const SaxLearningApp = () => {
         <button
           onClick={() => {
             setEditorMode(!editorMode);
-            // Initialize editing song if entering editor mode
             if (!editorMode) {
               setEditingSong({ ...song });
             }
@@ -842,6 +1032,12 @@ const SaxLearningApp = () => {
           } text-white`}
         >
           {editorMode ? "Exit Editor" : "Open Editor"}
+        </button>
+        <button
+          onClick={() => setShowSongList(true)}
+          className="px-4 py-2 rounded bg-green-500 hover:bg-green-600 text-white"
+        >
+          Load Saved Song
         </button>
       </div>
 
@@ -861,6 +1057,8 @@ const SaxLearningApp = () => {
           </p>
         </div>
       )}
+
+      {renderSavedSongs()}
     </div>
   );
 };
