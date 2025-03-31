@@ -21,44 +21,32 @@ type FingerPositionMap = {
 };
 
 const SaxLearningApp = () => {
-  // Map note names to frequencies for playback
-  const noteToFrequency = (noteName: string): number => {
-    // Alto saxophone note to frequency mapping (in concert pitch)
-    const noteMap: Record<string, number> = {
-      // First register
-      C1: 349.23, // Concert Eb (E flat)
-      D1: 392.0, // Concert F
-      E1: 440.0, // Concert G
-      F1: 466.16, // Concert Ab (A flat)
-      G1: 523.25, // Concert Bb (B flat)
-
-      // Second register (octave higher)
-      C2: 698.46, // Concert Eb (E flat), one octave higher
-      D2: 784.0, // Concert F, one octave higher
-      E2: 880.0, // Concert G, one octave higher
-      F2: 932.33, // Concert Ab (A flat), one octave higher
-      G2: 1046.5, // Concert Bb (B flat), one octave higher
-    };
-
-    return noteMap[noteName] || 440; // Default to A440 if note not found
-  };
-
-  // Fingerboard configuration for Alto Sax - Simplified for beginners
-  // For each note, defines: [octaveKey, First finger, Second finger, Third finger]
+  // Updated fingerboard configuration for Alto Sax based on the chart
+  // For each note, defines: [octaveKey, First finger, Second finger, Third finger, Fourth finger, Fifth finger, Sixth finger]
+  // True = key is pressed/covered, False = key is open/not pressed
   const fingerPositions: FingerPositionMap = {
-    // First register basic notes (no octave key)
-    C1: [false, false, true, false], // Second finger only
-    D1: [false, true, true, true], // All three fingers
-    E1: [false, true, true, false], // First and second fingers
-    F1: [false, true, false, false], // First finger only
-    G1: [false, false, false, true], // Third finger only
+    // First register (lower octave)
+    Bb1: [false, true, true, true, true, true, true],
+    B1: [false, true, false, false, false, false, false],
+    C1: [false, false, true, false, false, false, false],
+    "C#1": [false, false, false, true, false, false, false],
+    D1: [false, true, true, true, true, true, true],
+    E1: [false, true, true, true, true, true, false],
+    F1: [false, true, true, true, true, false, false],
+    "F#1": [false, true, true, true, false, true, false],
+    G1: [true, true, true, false, false, false, false],
+    A1: [false, true, true, false, false, false, false],
 
-    // Second register basic notes (with octave key)
-    C2: [true, false, true, false], // Octave key + second finger
-    D2: [true, true, true, true], // Octave key + all three fingers
-    E2: [true, true, true, false], // Octave key + first and second fingers
-    F2: [true, true, false, false], // Octave key + first finger
-    G2: [true, false, false, true], // Octave key + third finger
+    // Second register (higher octave - with octave key)
+    B2: [true, true, false, false, false, false, false],
+    C2: [true, false, true, false, false, false, false],
+    "C#2": [true, false, true, false, false, false, false],
+    D2: [true, true, true, true, false, true, true],
+    E2: [true, true, true, true, true, true, false],
+    F2: [true, true, true, true, true, false, false],
+    "F#2": [true, true, true, true, false, true, false],
+    G2: [true, true, true, true, false, false, false],
+    A2: [true, true, true, false, false, false, false],
   };
 
   // State for music data
@@ -66,15 +54,15 @@ const SaxLearningApp = () => {
     title: "Alto Sax Basic Notes",
     notes: [
       { note: "C1", duration: 1, time: 0 },
-      { note: "D1", duration: 1, time: 1 },
-      { note: "E1", duration: 1, time: 2 },
-      { note: "F1", duration: 1, time: 3 },
-      { note: "G1", duration: 1, time: 4 },
-      { note: "C2", duration: 1, time: 5 },
-      { note: "D2", duration: 1, time: 6 },
-      { note: "E2", duration: 1, time: 7 },
-      { note: "F2", duration: 1, time: 8 },
-      { note: "G2", duration: 1, time: 9 },
+      { note: "B1", duration: 1, time: 1 },
+      { note: "D1", duration: 1, time: 2 },
+      { note: "E1", duration: 1, time: 3 },
+      { note: "F1", duration: 1, time: 4 },
+      { note: "G1", duration: 1, time: 5 },
+      { note: "B2", duration: 1, time: 6 },
+      { note: "C2", duration: 1, time: 7 },
+      { note: "D2", duration: 1, time: 8 },
+      { note: "B2", duration: 1, time: 9 },
     ],
     tempo: 60,
     timeSignature: [4, 4],
@@ -193,17 +181,18 @@ const SaxLearningApp = () => {
 
     // If we have a note and it's different from the last played note, play it
     if (currentNote && currentNote !== lastPlayedNoteRef.current) {
-      const noteFreq = noteToFrequency(currentNote);
-
       // Release previous note if any
       if (currentlyPlayingNote) {
         synth.triggerRelease();
       }
 
-      // Play the new note
+      // Transpose the note up by TWO octaves for playback to maintain current pitch
+      const transposedNote = currentNote.replace(/(\d+)$/, (_, octave) =>
+        String(parseInt(octave) + 2)
+      );
       const noteDuration =
         song.notes.find((n) => n.note === currentNote)?.duration || 1;
-      synth.triggerAttackRelease(noteFreq, noteDuration);
+      synth.triggerAttackRelease(transposedNote, noteDuration);
 
       // Update state to track currently playing note
       setCurrentlyPlayingNote(currentNote);
@@ -252,7 +241,7 @@ const SaxLearningApp = () => {
               file.name.replace(".mid", "").replace(".midi", "") +
               " (Basic Notes)",
             notes: Array.from({ length: 8 }, (_, i) => ({
-              note: ["C1", "D1", "E1", "F1", "G1", "C2", "D2", "E2"][
+              note: ["Bb1", "C1", "D1", "Eb1", "F1", "G1", "Bb2", "C2"][
                 Math.floor(Math.random() * 8)
               ],
               duration: 1,
@@ -287,18 +276,37 @@ const SaxLearningApp = () => {
     }
   };
 
-  // Handle progress bar click to seek
-  const handleProgressBarClick = (
-    e: React.MouseEvent<HTMLDivElement>
-  ): void => {
-    const progressBar = e.currentTarget;
-    const rect = progressBar.getBoundingClientRect();
-    const clickX = e.clientX - rect.left;
-    const progressBarWidth = rect.width;
-    const seekPercentage = clickX / progressBarWidth;
-    const seekTime = seekPercentage * duration;
+  // Progress bar click handler
+  const handleProgressBarClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const clickedTime = (x / rect.width) * duration;
+    setCurrentTime(clickedTime);
+  };
 
-    setCurrentTime(seekTime);
+  // Progress bar component
+  const renderProgressBar = () => {
+    const progress = (currentTime / duration) * 100;
+
+    return (
+      <div
+        className="progress-container h-4 bg-gray-700 rounded-full mb-4 cursor-pointer relative"
+        onClick={handleProgressBarClick}
+      >
+        <div
+          className="progress-bar h-full bg-red-500 rounded-full"
+          style={{ width: `${progress}%` }}
+        ></div>
+        <div
+          className="progress-handle absolute h-6 w-6 bg-white rounded-full -mt-1 shadow-lg"
+          style={{
+            left: `calc(${progress}% - 12px)`,
+            top: "0",
+            display: progress > 0 ? "block" : "none",
+          }}
+        ></div>
+      </div>
+    );
   };
 
   // Get current note based on time
@@ -329,215 +337,53 @@ const SaxLearningApp = () => {
     octave: number;
   }
 
-  // Render staff with notes
-  const renderStaff = () => {
-    const currentNoteIndex = getCurrentNoteIndex();
-
-    // Parse note and octave from note string (e.g., "C2" -> {note: "C", octave: 2})
-    const parseNote = (noteString: string): ParsedNote => {
-      const match = noteString.match(/([A-G][♭♯]?)(\d)/);
-      if (match) {
-        return {
-          note: match[1],
-          octave: parseInt(match[2]),
-        };
-      }
-      return { note: noteString, octave: 1 };
-    };
-
-    // Calculate note vertical position based on note and octave
-    const getNotePosition = (noteString: string): number => {
-      const { note, octave } = parseNote(noteString);
-
-      // Base positions for natural notes (adjust for your staff)
-      const basePositions: Record<string, number> = {
-        C: 100,
-        D: 90,
-        E: 80,
-        F: 70,
-        G: 60,
-        A: 50,
-        B: 40,
+  // Parse note and octave from note string (e.g., "C2" -> {note: "C", octave: 2})
+  const parseNote = (noteString: string): ParsedNote => {
+    const match = noteString.match(/([A-G][#b]?)(\d)/);
+    if (match) {
+      return {
+        note: match[1],
+        octave: parseInt(match[2]),
       };
+    }
+    return { note: noteString, octave: 1 };
+  };
 
-      // Extract base note (without accidental)
-      const baseNote = note.charAt(0);
-      const basePosition = basePositions[baseNote] || 70;
+  // Calculate note vertical position based on note and octave
+  const getNotePosition = (noteString: string): number => {
+    const { note, octave } = parseNote(noteString);
 
-      // Adjust for octave - lower octave is higher on the staff
-      const octaveOffset = (octave - 1) * -70;
-
-      return basePosition + octaveOffset;
+    // Base positions for natural notes (adjust for your staff)
+    const basePositions: Record<string, number> = {
+      C: 100, // Middle C - ledger line below staff
+      D: 88, // First space
+      E: 80, // First line
+      F: 65, // First space
+      G: 45, // Second line
+      A: 25, // Second space
+      B: 5, // Third line
+      Bb: 15, // Between B and A
+      "C#": 95, // Between C and D
+      Eb: 70, // Between E and F
+      "F#": 55, // Between F and G
+      "G#": 35, // Between G and A
     };
 
-    return (
-      <div className="staff bg-gray-800 p-4 mb-4 relative border border-gray-700 rounded-lg">
-        <div className="staff-lines relative h-80">
-          {[0, 1, 2, 3, 4].map((line) => (
-            <div
-              key={line}
-              className="absolute h-px bg-gray-500 w-full"
-              style={{ top: `${line * 20 + 40}px` }}
-            ></div>
-          ))}
+    // Extract base note (without accidental)
+    const baseNote = note.replace("#", "").replace("b", "");
+    let basePosition = basePositions[baseNote] || 65;
 
-          {/* Position notes on the staff */}
-          {song.notes.map((note, index) => {
-            // Get vertical position
-            const top = getNotePosition(note.note);
+    // Adjust for accidentals
+    if (note.includes("#")) {
+      basePosition -= 5;
+    } else if (note.includes("b")) {
+      basePosition += 5;
+    }
 
-            // Calculate horizontal position
-            const left = `${(note.time / duration) * 100}%`;
-            const width = `${(note.duration / duration) * 100}%`;
+    // Adjust for octave - higher octave moves notes down on staff
+    const octaveOffset = (octave - 1) * -80;
 
-            // Is this the current note?
-            const isCurrent = index === currentNoteIndex;
-
-            // Parse note for display
-            const { note: noteName, octave } = parseNote(note.note);
-
-            return (
-              <div
-                key={index}
-                className={`absolute flex flex-col items-center justify-center transition-all duration-200
-                          ${isCurrent ? "scale-110" : "scale-100"}`}
-                style={{
-                  left: left,
-                  top: top,
-                  width: width,
-                  maxWidth: "100px",
-                  zIndex: isCurrent ? 10 : 1,
-                }}
-              >
-                <div
-                  className={`text-2xl font-bold ${
-                    isCurrent ? "text-blue-400" : "text-white"
-                  }`}
-                >
-                  {noteName}
-                  <span className="text-sm">{octave}</span>
-                </div>
-                <div
-                  className={`text-4xl ${
-                    isCurrent ? "text-blue-400" : "text-white"
-                  }`}
-                >
-                  ♩
-                </div>
-              </div>
-            );
-          })}
-
-          {/* Current time indicator */}
-          <div
-            className="absolute h-full w-px bg-red-500 z-20"
-            style={{ left: `${(currentTime / duration) * 100}%` }}
-          ></div>
-        </div>
-      </div>
-    );
-  };
-
-  // Render finger position indicators
-  const renderFingerPositions = () => {
-    const currentNote = getCurrentNote();
-    const positions = currentNote
-      ? fingerPositions[currentNote]
-      : Array(4).fill(false);
-
-    // Calculate the visible portion of the timeline
-    const noteTimelineWidth = "calc(100% - 150px)";
-
-    // Key labels for saxophone - simplified version
-    const keyLabels = [
-      "Octave Key (Thumb)",
-      "First Finger",
-      "Second Finger",
-      "Third Finger",
-    ];
-
-    return (
-      <div className="finger-positions mb-6 mt-8">
-        {positions?.map((isPressed, index) => (
-          <div
-            key={index}
-            className="finger-row flex items-center mb-6 relative"
-          >
-            {/* Key label and circle indicator on the left */}
-            <div className="flex items-center w-40">
-              <div
-                className={`w-10 h-10 rounded-full border-2 flex items-center justify-center mr-2 
-                           ${
-                             isPressed
-                               ? index === 0
-                                 ? "bg-blue-300 border-blue-500"
-                                 : "bg-yellow-300 border-yellow-500"
-                               : "border-gray-300"
-                           }`}
-              ></div>
-              <span className="text-sm whitespace-nowrap overflow-hidden text-gray-300">
-                {keyLabels[index]}
-              </span>
-            </div>
-
-            {/* Horizontal bars */}
-            <div
-              className="bars-container relative"
-              style={{ width: noteTimelineWidth }}
-            >
-              {song.notes.map((note, noteIndex) => {
-                // Check if this note requires this finger position
-                const notePositions = fingerPositions[note.note] || [];
-                const isActiveForNote = notePositions[index];
-
-                // Position and width calculations
-                const startPercent = (note.time / duration) * 100;
-                const widthPercent = (note.duration / duration) * 100;
-
-                return isActiveForNote ? (
-                  <div
-                    key={noteIndex}
-                    className={`absolute h-8 ${
-                      index === 0 ? "bg-blue-300" : "bg-yellow-300"
-                    } rounded-md`}
-                    style={{
-                      left: `${startPercent}%`,
-                      width: `${widthPercent}%`,
-                      top: 0,
-                    }}
-                  ></div>
-                ) : null;
-              })}
-            </div>
-          </div>
-        ))}
-      </div>
-    );
-  };
-
-  // Progress bar
-  const renderProgressBar = () => {
-    const progress = (currentTime / duration) * 100;
-
-    return (
-      <div
-        className="progress-container h-4 bg-gray-700 rounded-full mb-4 cursor-pointer relative"
-        onClick={handleProgressBarClick}
-      >
-        <div
-          className="progress-bar h-full bg-red-500 rounded-full"
-          style={{ width: `${progress}%` }}
-        ></div>
-        <div
-          className="progress-handle absolute h-6 w-6 bg-white rounded-full -mt-1 shadow-lg"
-          style={{
-            left: `calc(${progress}% - 12px)`,
-            top: "0",
-            display: progress > 0 ? "block" : "none",
-          }}
-        ></div>
-      </div>
-    );
+    return basePosition + octaveOffset;
   };
 
   // Render controls
@@ -623,7 +469,7 @@ const SaxLearningApp = () => {
     if (!editingSong) return;
 
     const newNote: Note = {
-      note: "C2", // Default to middle C in second octave
+      note: "C1", // Default to middle C in first octave
       duration: 1,
       time:
         editingSong.notes.length > 0
@@ -807,13 +653,176 @@ const SaxLearningApp = () => {
   };
 
   return (
-    <div className="sax-learning-app bg-gray-900 text-white p-6 rounded-lg max-w-4xl mx-auto">
+    <div className="sax-learning-app bg-gray-900 text-white min-h-screen w-full p-6">
       <h1 className="text-2xl mb-4">{song.title} - Alto Saxophone Tutorial</h1>
 
       {!editorMode && (
         <>
-          {renderStaff()}
-          {renderFingerPositions()}
+          <div className="flex gap-4 w-full">
+            {/* Key labels section on the left */}
+            <div className="w-48">
+              {/* Key labels */}
+              {[
+                "Octave Key (Thumb)",
+                "First Finger (Index)",
+                "Second Finger (Middle)",
+                "Third Finger (Ring)",
+                "Fourth Finger (Left Pinky)",
+                "Fifth Finger (Right Index)",
+                "Sixth Finger (Right Middle)",
+              ].map((label, index) => (
+                <div key={index} className="flex items-center mb-6">
+                  <div
+                    className={`w-10 h-10 rounded-full border-2 flex items-center justify-center mr-2 
+                    ${
+                      getCurrentNote() &&
+                      fingerPositions[getCurrentNote()!]?.[index]
+                        ? index === 0
+                          ? "bg-blue-300 border-blue-500"
+                          : "bg-yellow-300 border-yellow-500"
+                        : "border-gray-300"
+                    }`}
+                  ></div>
+                  <span className="text-sm whitespace-nowrap overflow-hidden text-gray-300">
+                    {label}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            {/* Main staff and finger positions section */}
+            <div className="flex-1">
+              <div className="staff bg-gray-800 p-4 relative border border-gray-700 rounded-lg">
+                {/* Staff section */}
+                <div className="staff-lines relative h-[120px] mb-8">
+                  {/* Staff lines */}
+                  {[0, 1, 2, 3, 4].map((line) => (
+                    <div
+                      key={line}
+                      className="absolute h-px bg-gray-500 w-full"
+                      style={{ top: `${line * 20 + 20}px` }}
+                    ></div>
+                  ))}
+
+                  {/* Notes on staff */}
+                  {song.notes.map((note, index) => {
+                    const top = getNotePosition(note.note) * 0.25;
+                    // Adjust position calculation to center at 20% mark
+                    const timeOffset = note.time - currentTime;
+                    const left = `${20 + timeOffset * 20}%`; // 20% is our center point, move 20% per second
+                    const width = `${(note.duration / duration) * 100}%`;
+                    const isCurrent = index === getCurrentNoteIndex();
+                    const { note: noteName, octave } = parseNote(note.note);
+
+                    // Only show notes that are coming up or recently passed
+                    if (timeOffset > -2 && timeOffset < 5) {
+                      return (
+                        <div
+                          key={index}
+                          className={`absolute flex flex-col items-center justify-center transition-all duration-200
+                                    ${isCurrent ? "scale-110" : "scale-100"}`}
+                          style={{
+                            left: left,
+                            top: top,
+                            width: width,
+                            maxWidth: "100px",
+                            zIndex: isCurrent ? 10 : 1,
+                          }}
+                        >
+                          <div
+                            className={`text-lg font-bold ${
+                              isCurrent ? "text-blue-400" : "text-white"
+                            }`}
+                          >
+                            {noteName}
+                            <span className="text-sm">{octave}</span>
+                          </div>
+                          <div
+                            className={`text-2xl ${
+                              isCurrent ? "text-blue-400" : "text-white"
+                            }`}
+                          >
+                            ♩
+                          </div>
+                        </div>
+                      );
+                    }
+                    return null;
+                  })}
+
+                  {/* Vertical line indicator at 20% from left */}
+                  <div
+                    className="absolute h-full w-px bg-red-500 z-20"
+                    style={{ left: "20%" }}
+                  ></div>
+                </div>
+
+                {/* Finger position circles and bars section */}
+                <div className="finger-positions relative h-[350px]">
+                  {/* Finger position bars */}
+                  {getCurrentNote() &&
+                    fingerPositions[getCurrentNote()!]?.map(
+                      (isPressed, index) => (
+                        <div
+                          key={index}
+                          className="absolute w-full"
+                          style={{ top: `${index * 50}px` }}
+                        >
+                          {/* Circle indicator at 20% from left */}
+                          <div
+                            className={`absolute h-8 w-8 rounded-full border-2 flex items-center justify-center
+                              ${
+                                isPressed
+                                  ? index === 0
+                                    ? "bg-blue-300 border-blue-500"
+                                    : "bg-yellow-300 border-yellow-500"
+                                  : "border-gray-300"
+                              }`}
+                            style={{ left: "calc(20% - 16px)", top: "-4px" }}
+                          />
+
+                          {/* Bars for upcoming notes */}
+                          {song.notes.map((note, noteIndex) => {
+                            const notePositions =
+                              fingerPositions[note.note] || [];
+                            const isActiveForNote = notePositions[index];
+                            // Match the note positioning logic
+                            const timeOffset = note.time - currentTime;
+                            const left = `${20 + timeOffset * 20}%`;
+                            const widthPercent =
+                              (note.duration / duration) * 100;
+
+                            // Only show bars that are coming up or recently passed
+                            if (
+                              timeOffset > -2 &&
+                              timeOffset < 5 &&
+                              isActiveForNote
+                            ) {
+                              return (
+                                <div
+                                  key={noteIndex}
+                                  className={`absolute h-8 ${
+                                    index === 0
+                                      ? "bg-blue-300"
+                                      : "bg-yellow-300"
+                                  } rounded-md opacity-80`}
+                                  style={{
+                                    left: left,
+                                    width: `${widthPercent}%`,
+                                  }}
+                                ></div>
+                              );
+                            }
+                            return null;
+                          })}
+                        </div>
+                      )
+                    )}
+                </div>
+              </div>
+            </div>
+          </div>
+
           {renderProgressBar()}
           {renderControls()}
         </>
@@ -821,7 +830,13 @@ const SaxLearningApp = () => {
 
       <div className="mt-6 flex space-x-4">
         <button
-          onClick={() => setEditorMode(!editorMode)}
+          onClick={() => {
+            setEditorMode(!editorMode);
+            // Initialize editing song if entering editor mode
+            if (!editorMode) {
+              setEditingSong({ ...song });
+            }
+          }}
           className={`px-4 py-2 rounded ${
             editorMode ? "bg-gray-500" : "bg-blue-500"
           } text-white`}
